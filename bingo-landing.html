@@ -1,0 +1,860 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>BINGO Protocol — Onchain Treasury Primitive</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Cormorant+Garamond:wght@300;400;500;600;700&family=IBM+Plex+Mono:wght@300;400;500&display=swap" rel="stylesheet">
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        :root {
+            --primary-dark: #0a0e12;
+            --secondary-dark: #151a21;
+            --accent-gold: #d4af37;
+            --accent-gold-dim: #a88b2e;
+            --text-primary: #e8e6e3;
+            --text-secondary: #9a9792;
+            --text-tertiary: #6b6661;
+            --border-subtle: rgba(212, 175, 55, 0.12);
+            --border-medium: rgba(212, 175, 55, 0.25);
+        }
+
+        body {
+            font-family: 'Cormorant Garamond', serif;
+            background-color: var(--primary-dark);
+            color: var(--text-primary);
+            line-height: 1.6;
+            overflow-x: hidden;
+            -webkit-font-smoothing: antialiased;
+            -moz-osx-font-smoothing: grayscale;
+        }
+
+        .mono {
+            font-family: 'IBM Plex Mono', monospace;
+            letter-spacing: 0.02em;
+        }
+
+        /* Grain overlay */
+        body::before {
+            content: '';
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            pointer-events: none;
+            background-image: 
+                repeating-linear-gradient(0deg, transparent, transparent 2px, rgba(0,0,0,0.03) 2px, rgba(0,0,0,0.03) 4px);
+            opacity: 0.4;
+            z-index: 9999;
+        }
+
+        .container {
+            max-width: 1400px;
+            margin: 0 auto;
+            padding: 0 4rem;
+        }
+
+        /* Navigation */
+        nav {
+            position: fixed;
+            top: 0;
+            width: 100%;
+            z-index: 1000;
+            background: linear-gradient(180deg, var(--primary-dark) 0%, rgba(10,14,18,0.95) 80%, transparent 100%);
+            backdrop-filter: blur(12px);
+            border-bottom: 1px solid var(--border-subtle);
+        }
+
+        nav .container {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            padding-top: 2rem;
+            padding-bottom: 2rem;
+        }
+
+        .logo {
+            font-size: 1.5rem;
+            font-weight: 500;
+            letter-spacing: 0.15em;
+            color: var(--accent-gold);
+            text-transform: uppercase;
+        }
+
+        .nav-links {
+            display: flex;
+            gap: 3rem;
+            list-style: none;
+        }
+
+        .nav-links a {
+            color: var(--text-secondary);
+            text-decoration: none;
+            font-size: 0.95rem;
+            letter-spacing: 0.05em;
+            transition: color 0.3s ease;
+            position: relative;
+        }
+
+        .nav-links a::after {
+            content: '';
+            position: absolute;
+            bottom: -4px;
+            left: 0;
+            width: 0;
+            height: 1px;
+            background: var(--accent-gold);
+            transition: width 0.3s ease;
+        }
+
+        .nav-links a:hover {
+            color: var(--accent-gold);
+        }
+
+        .nav-links a:hover::after {
+            width: 100%;
+        }
+
+        /* Hero Section */
+        .hero {
+            padding-top: 14rem;
+            padding-bottom: 10rem;
+            position: relative;
+        }
+
+        .hero::after {
+            content: '';
+            position: absolute;
+            top: 20%;
+            right: -10%;
+            width: 600px;
+            height: 600px;
+            background: radial-gradient(circle, rgba(212,175,55,0.08) 0%, transparent 70%);
+            border-radius: 50%;
+            pointer-events: none;
+            animation: float 8s ease-in-out infinite;
+        }
+
+        @keyframes float {
+            0%, 100% { transform: translate(0, 0) scale(1); }
+            50% { transform: translate(-30px, -30px) scale(1.05); }
+        }
+
+        .hero-content {
+            max-width: 900px;
+            position: relative;
+            z-index: 1;
+        }
+
+        .hero-label {
+            font-size: 0.75rem;
+            text-transform: uppercase;
+            letter-spacing: 0.2em;
+            color: var(--accent-gold);
+            margin-bottom: 2rem;
+            font-weight: 400;
+            opacity: 0;
+            animation: fadeInUp 0.8s ease forwards;
+        }
+
+        .hero h1 {
+            font-size: 5rem;
+            font-weight: 400;
+            line-height: 1.1;
+            margin-bottom: 2rem;
+            letter-spacing: -0.02em;
+            opacity: 0;
+            animation: fadeInUp 0.8s ease 0.2s forwards;
+        }
+
+        .hero-subtitle {
+            font-size: 1.5rem;
+            color: var(--text-secondary);
+            margin-bottom: 3rem;
+            font-weight: 300;
+            line-height: 1.6;
+            max-width: 700px;
+            opacity: 0;
+            animation: fadeInUp 0.8s ease 0.4s forwards;
+        }
+
+        @keyframes fadeInUp {
+            from {
+                opacity: 0;
+                transform: translateY(30px);
+            }
+            to {
+                opacity: 1;
+                transform: translateY(0);
+            }
+        }
+
+        .cta-group {
+            display: flex;
+            gap: 1.5rem;
+            align-items: center;
+            opacity: 0;
+            animation: fadeInUp 0.8s ease 0.6s forwards;
+        }
+
+        .btn-primary, .btn-secondary {
+            padding: 1rem 2.5rem;
+            font-size: 0.9rem;
+            text-transform: uppercase;
+            letter-spacing: 0.15em;
+            font-family: 'IBM Plex Mono', monospace;
+            border: none;
+            cursor: pointer;
+            transition: all 0.4s ease;
+            font-weight: 500;
+            text-decoration: none;
+            display: inline-block;
+        }
+
+        .btn-primary {
+            background: var(--accent-gold);
+            color: var(--primary-dark);
+            position: relative;
+            overflow: hidden;
+        }
+
+        .btn-primary::before {
+            content: '';
+            position: absolute;
+            top: 50%;
+            left: 50%;
+            width: 0;
+            height: 0;
+            border-radius: 50%;
+            background: rgba(255,255,255,0.3);
+            transform: translate(-50%, -50%);
+            transition: width 0.6s, height 0.6s;
+        }
+
+        .btn-primary:hover::before {
+            width: 300px;
+            height: 300px;
+        }
+
+        .btn-primary:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 8px 24px rgba(212,175,55,0.3);
+        }
+
+        .btn-secondary {
+            background: transparent;
+            color: var(--text-primary);
+            border: 1px solid var(--border-medium);
+        }
+
+        .btn-secondary:hover {
+            background: rgba(212,175,55,0.05);
+            border-color: var(--accent-gold);
+            color: var(--accent-gold);
+        }
+
+        /* Features Section */
+        .features-section {
+            padding: 10rem 0;
+        }
+
+        .section-header {
+            text-align: center;
+            margin-bottom: 6rem;
+        }
+
+        .section-label {
+            font-size: 0.75rem;
+            text-transform: uppercase;
+            letter-spacing: 0.2em;
+            color: var(--accent-gold);
+            margin-bottom: 1.5rem;
+            font-weight: 400;
+        }
+
+        .section-title {
+            font-size: 3.5rem;
+            font-weight: 400;
+            margin-bottom: 1.5rem;
+            letter-spacing: -0.01em;
+        }
+
+        .section-description {
+            font-size: 1.3rem;
+            color: var(--text-secondary);
+            max-width: 700px;
+            margin: 0 auto;
+            font-weight: 300;
+        }
+
+        .features-grid {
+            display: grid;
+            grid-template-columns: repeat(3, 1fr);
+            gap: 3rem;
+        }
+
+        .feature-card {
+            padding: 3rem 2.5rem;
+            background: linear-gradient(135deg, rgba(21,26,33,0.8) 0%, rgba(15,20,27,0.9) 100%);
+            border: 1px solid var(--border-subtle);
+            transition: all 0.4s ease;
+            position: relative;
+            overflow: hidden;
+        }
+
+        .feature-card::before {
+            content: '';
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 1px;
+            background: linear-gradient(90deg, transparent, var(--accent-gold), transparent);
+            transform: translateX(-100%);
+            transition: transform 0.6s ease;
+        }
+
+        .feature-card:hover::before {
+            transform: translateX(100%);
+        }
+
+        .feature-card:hover {
+            border-color: var(--accent-gold);
+            transform: translateY(-8px);
+            box-shadow: 0 16px 48px rgba(0,0,0,0.4);
+        }
+
+        .feature-icon {
+            font-size: 2.5rem;
+            margin-bottom: 2rem;
+            color: var(--accent-gold);
+            font-weight: 300;
+        }
+
+        .feature-title {
+            font-size: 1.5rem;
+            margin-bottom: 1rem;
+            font-weight: 500;
+            letter-spacing: -0.01em;
+        }
+
+        .feature-description {
+            color: var(--text-secondary);
+            line-height: 1.8;
+            font-size: 1.05rem;
+            font-weight: 300;
+        }
+
+        /* How It Works */
+        .how-it-works {
+            padding: 10rem 0;
+            background: linear-gradient(180deg, transparent 0%, rgba(21,26,33,0.4) 50%, transparent 100%);
+        }
+
+        .timeline {
+            max-width: 900px;
+            margin: 0 auto;
+            position: relative;
+        }
+
+        .timeline::before {
+            content: '';
+            position: absolute;
+            left: 50%;
+            top: 0;
+            bottom: 0;
+            width: 1px;
+            background: var(--border-medium);
+            transform: translateX(-50%);
+        }
+
+        .timeline-item {
+            display: flex;
+            align-items: center;
+            margin-bottom: 6rem;
+            position: relative;
+        }
+
+        .timeline-item:nth-child(even) {
+            flex-direction: row-reverse;
+        }
+
+        .timeline-content {
+            width: 45%;
+            padding: 2rem;
+        }
+
+        .timeline-number {
+            font-size: 4rem;
+            font-weight: 300;
+            color: var(--accent-gold-dim);
+            margin-bottom: 1rem;
+            line-height: 1;
+        }
+
+        .timeline-title {
+            font-size: 1.8rem;
+            margin-bottom: 1rem;
+            font-weight: 500;
+        }
+
+        .timeline-description {
+            color: var(--text-secondary);
+            line-height: 1.8;
+            font-weight: 300;
+        }
+
+        .timeline-dot {
+            width: 16px;
+            height: 16px;
+            border-radius: 50%;
+            background: var(--accent-gold);
+            border: 4px solid var(--primary-dark);
+            position: absolute;
+            left: 50%;
+            transform: translateX(-50%);
+            z-index: 2;
+            box-shadow: 0 0 20px rgba(212,175,55,0.5);
+        }
+
+        /* Protocol Architecture */
+        .architecture-section {
+            padding: 10rem 0;
+        }
+
+        .architecture-visual {
+            max-width: 1000px;
+            margin: 4rem auto;
+            padding: 4rem;
+            background: linear-gradient(135deg, rgba(21,26,33,0.6) 0%, rgba(15,20,27,0.8) 100%);
+            border: 1px solid var(--border-subtle);
+            border-radius: 2px;
+            position: relative;
+        }
+
+        .arch-layer {
+            padding: 2rem;
+            margin-bottom: 2rem;
+            border: 1px solid var(--border-subtle);
+            background: rgba(10,14,18,0.8);
+            transition: all 0.3s ease;
+        }
+
+        .arch-layer:hover {
+            border-color: var(--accent-gold);
+            background: rgba(15,20,27,0.9);
+        }
+
+        .arch-layer:last-child {
+            margin-bottom: 0;
+        }
+
+        .arch-title {
+            font-size: 1.2rem;
+            font-family: 'IBM Plex Mono', monospace;
+            color: var(--accent-gold);
+            margin-bottom: 0.5rem;
+            letter-spacing: 0.05em;
+        }
+
+        .arch-description {
+            color: var(--text-secondary);
+            font-size: 0.95rem;
+            font-weight: 300;
+        }
+
+        /* CTA Section */
+        .cta-section {
+            padding: 10rem 0;
+            text-align: center;
+            position: relative;
+        }
+
+        .cta-section::before {
+            content: '';
+            position: absolute;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+            width: 800px;
+            height: 400px;
+            background: radial-gradient(ellipse, rgba(212,175,55,0.1) 0%, transparent 70%);
+            pointer-events: none;
+        }
+
+        .cta-content {
+            position: relative;
+            z-index: 1;
+        }
+
+        .cta-title {
+            font-size: 4rem;
+            font-weight: 400;
+            margin-bottom: 2rem;
+            letter-spacing: -0.02em;
+        }
+
+        .cta-subtitle {
+            font-size: 1.4rem;
+            color: var(--text-secondary);
+            margin-bottom: 3rem;
+            font-weight: 300;
+        }
+
+        /* Footer */
+        footer {
+            border-top: 1px solid var(--border-subtle);
+            padding: 4rem 0;
+        }
+
+        .footer-content {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+
+        .footer-links {
+            display: flex;
+            gap: 3rem;
+            list-style: none;
+        }
+
+        .footer-links a {
+            color: var(--text-tertiary);
+            text-decoration: none;
+            font-size: 0.9rem;
+            transition: color 0.3s ease;
+            font-family: 'IBM Plex Mono', monospace;
+            letter-spacing: 0.05em;
+        }
+
+        .footer-links a:hover {
+            color: var(--accent-gold);
+        }
+
+        .footer-copyright {
+            color: var(--text-tertiary);
+            font-size: 0.85rem;
+            font-family: 'IBM Plex Mono', monospace;
+        }
+
+        /* Responsive */
+        @media (max-width: 1024px) {
+            .container {
+                padding: 0 2rem;
+            }
+
+            .hero h1 {
+                font-size: 3.5rem;
+            }
+
+            .features-grid {
+                grid-template-columns: repeat(2, 1fr);
+            }
+        }
+
+        @media (max-width: 768px) {
+            .nav-links {
+                display: none;
+            }
+
+            .hero {
+                padding-top: 10rem;
+            }
+
+            .hero h1 {
+                font-size: 2.5rem;
+            }
+
+            .hero-subtitle {
+                font-size: 1.2rem;
+            }
+
+            .cta-group {
+                flex-direction: column;
+            }
+
+            .features-grid {
+                grid-template-columns: 1fr;
+            }
+
+            .timeline-item {
+                flex-direction: column !important;
+            }
+
+            .timeline-content {
+                width: 100%;
+            }
+
+            .timeline::before {
+                left: 0;
+            }
+
+            .timeline-dot {
+                left: 0;
+            }
+
+            .cta-title {
+                font-size: 2.5rem;
+            }
+
+            .footer-content {
+                flex-direction: column;
+                gap: 2rem;
+                text-align: center;
+            }
+        }
+    </style>
+</head>
+<body>
+    <!-- Navigation -->
+    <nav>
+        <div class="container">
+            <div class="logo">BINGO</div>
+            <ul class="nav-links">
+                <li><a href="#protocol">Protocol</a></li>
+                <li><a href="#mechanics">Mechanics</a></li>
+                <li><a href="#architecture">Architecture</a></li>
+                <li><a href="#documentation">Documentation</a></li>
+            </ul>
+        </div>
+    </nav>
+
+    <!-- Hero Section -->
+    <section class="hero">
+        <div class="container">
+            <div class="hero-content">
+                <div class="hero-label">Onchain T-Bill Primitive</div>
+                <h1>BINGO<br><span style="font-size: 0.4em; font-weight: 300; letter-spacing: 0.05em; color: var(--text-secondary);">Bingo Is Not Government Obligation</span></h1>
+                <p class="hero-subtitle">Real yield, zero interest repos, and fair pricing by time. A new primitive for fixed income on Stellar Soroban.</p>
+                <div class="cta-group">
+                    <a href="#" class="btn-primary">Start Earning</a>
+                    <a href="#" class="btn-secondary">Explore Docs</a>
+                </div>
+            </div>
+        </div>
+    </section>
+
+    <!-- Features Section -->
+    <section class="features-section" id="protocol">
+        <div class="container">
+            <div class="section-header">
+                <div class="section-label">Why It Works</div>
+                <h2 class="section-title">Built Different</h2>
+                <p class="section-description">No oracles. No governance votes on rates. Just clean math and fair incentives for everyone who shows up.</p>
+            </div>
+            <div class="features-grid">
+                <div class="feature-card">
+                    <div class="feature-icon">I</div>
+                    <h3 class="feature-title">Time-Weighted Yield</h3>
+                    <p class="feature-description">Enter early, earn more. The index moves with time, not with some admin deciding rates. Pure math.</p>
+                </div>
+                <div class="feature-card">
+                    <div class="feature-icon">II</div>
+                    <h3 class="feature-title">Repos Without Interest</h3>
+                    <p class="feature-description">Need liquidity? Lock your position, get capital. The lender takes your yield while you're away. No complex rate calculations.</p>
+                </div>
+                <div class="feature-card">
+                    <div class="feature-icon">III</div>
+                    <h3 class="feature-title">Always Redeems at Par</h3>
+                    <p class="feature-description">When the T-Bill matures, everyone gets face value. No surprise depegs. No liquidity drama. Just clean exits.</p>
+                </div>
+                <div class="feature-card">
+                    <div class="feature-icon">IV</div>
+                    <h3 class="feature-title">Backed by Real T-Bills</h3>
+                    <p class="feature-description">The DAO holds actual T-Bills as underlying. You get synthetic exposure via obligations. Verify CUSIP numbers and custody docs anytime.</p>
+                </div>
+                <div class="feature-card">
+                    <div class="feature-icon">V</div>
+                    <h3 class="feature-title">Plug Into DeFi</h3>
+                    <p class="feature-description">Your positions are tokens. Use them however you want. Collateral, LP, whatever. The yield follows ownership.</p>
+                </div>
+                <div class="feature-card">
+                    <div class="feature-icon">VI</div>
+                    <h3 class="feature-title">Stellar Native</h3>
+                    <p class="feature-description">Built on Soroban for fast finality and cheap transactions. Financial rails that actually work at scale.</p>
+                </div>
+            </div>
+        </div>
+    </section>
+
+    <!-- How It Works -->
+    <section class="how-it-works" id="mechanics">
+        <div class="container">
+            <div class="section-header">
+                <div class="section-label">How It Works</div>
+                <h2 class="section-title">Subscribe → Hold → Redeem</h2>
+            </div>
+            <div class="timeline">
+                <div class="timeline-item">
+                    <div class="timeline-dot"></div>
+                    <div class="timeline-content">
+                        <div class="timeline-number">01</div>
+                        <h3 class="timeline-title">DAO Issues Obligations</h3>
+                        <p class="timeline-description">The DAO holds T-Bills as underlying assets, then issues synthetic obligations onchain. You get exposure to T-Bill yields, not the T-Bills themselves.</p>
+                    </div>
+                </div>
+                <div class="timeline-item">
+                    <div class="timeline-dot"></div>
+                    <div class="timeline-content">
+                        <div class="timeline-number">02</div>
+                        <h3 class="timeline-title">You Subscribe (KYC Required)</h3>
+                        <p class="timeline-description">Complete KYC/AML verification, then subscribe anytime before maturity. The earlier you enter, the more yield you earn. Priced fairly based on time remaining.</p>
+                    </div>
+                </div>
+                <div class="timeline-item">
+                    <div class="timeline-dot"></div>
+                    <div class="timeline-content">
+                        <div class="timeline-number">03</div>
+                        <h3 class="timeline-title">Yield Accrues</h3>
+                        <p class="timeline-description">Every day that passes, the value grows toward par. No staking, no claiming. Just automatic accrual tracked by the protocol.</p>
+                    </div>
+                </div>
+                <div class="timeline-item">
+                    <div class="timeline-dot"></div>
+                    <div class="timeline-content">
+                        <div class="timeline-number">04</div>
+                        <h3 class="timeline-title">Repo for Liquidity</h3>
+                        <p class="timeline-description">Need cash now? Lock your position and get instant liquidity from verified lenders. They earn your yield while you're in the repo. Repay anytime.</p>
+                    </div>
+                </div>
+                <div class="timeline-item">
+                    <div class="timeline-dot"></div>
+                    <div class="timeline-content">
+                        <div class="timeline-number">05</div>
+                        <h3 class="timeline-title">Redeem at Maturity</h3>
+                        <p class="timeline-description">When obligations mature, verified users redeem at face value in USDC. The DAO settles from T-Bill proceeds. You never touch the actual T-Bills.</p>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </section>
+
+    <!-- Architecture Section -->
+    <section class="architecture-section" id="architecture">
+        <div class="container">
+            <div class="section-header">
+                <div class="section-label">Under The Hood</div>
+                <h2 class="section-title">Smart Contract Stack</h2>
+                <p class="section-description">Modular design. Each contract does one thing well. No god contracts, no upgrade drama.</p>
+            </div>
+            <div class="architecture-visual">
+                <div class="arch-layer">
+                    <div class="arch-title">Series Registry</div>
+                    <div class="arch-description">Tracks all T-Bill series with CUSIP numbers, maturity dates, and proof of custody</div>
+                </div>
+                <div class="arch-layer">
+                    <div class="arch-title">Yield Engine</div>
+                    <div class="arch-description">Pure math. Calculates your yield based on time held. No external data feeds required</div>
+                </div>
+                <div class="arch-layer">
+                    <div class="arch-title">Token Manager</div>
+                    <div class="arch-description">Handles your shares, transfers, and makes sure yield follows the tokens correctly</div>
+                </div>
+                <div class="arch-layer">
+                    <div class="arch-title">Repo Escrow</div>
+                    <div class="arch-description">Locks collateral, matches lenders, and transfers yield rights during repo periods</div>
+                </div>
+                <div class="arch-layer">
+                    <div class="arch-title">Treasury Vault</div>
+                    <div class="arch-description">Holds USDC backing and processes redemptions when T-Bills mature</div>
+                </div>
+            </div>
+        </div>
+    </section>
+
+    <!-- CTA Section -->
+    <section class="cta-section">
+        <div class="container">
+            <div class="cta-content">
+                <h2 class="cta-title">Ready to Put Your<br>Capital to Work?</h2>
+                <p class="cta-subtitle">Join early users earning real yield on T-Bills without the TradFi friction.</p>
+                
+                <div style="max-width: 700px; margin: 2rem auto 3rem; padding: 1.5rem; border: 1px solid var(--border-subtle); background: rgba(21,26,33,0.6);">
+                    <p style="font-size: 0.9rem; color: var(--text-secondary); line-height: 1.8; margin: 0;">
+                        <span style="color: var(--accent-gold); font-weight: 500;">Note:</span> These are synthetic obligations backed by T-Bills, not direct government securities. KYC/AML required for all participants. Read the docs.
+                    </p>
+                </div>
+                
+                <div class="cta-group">
+                    <a href="#" class="btn-primary">Get Started</a>
+                    <a href="#" class="btn-secondary">Talk to Team</a>
+                </div>
+            </div>
+        </div>
+    </section>
+
+    <!-- Footer -->
+    <footer id="documentation">
+        <div class="container">
+            <div class="footer-content">
+                <div class="logo">BINGO</div>
+                <ul class="footer-links">
+                    <li><a href="#">Documentation</a></li>
+                    <li><a href="#">GitHub</a></li>
+                    <li><a href="#">Audits</a></li>
+                    <li><a href="#">Terms</a></li>
+                    <li><a href="#">Privacy</a></li>
+                </ul>
+                <div class="footer-copyright">© 2026 BINGO Protocol</div>
+            </div>
+        </div>
+    </footer>
+
+    <script>
+        // Smooth scroll
+        document.querySelectorAll('a[href^="#"]').forEach(anchor => {
+            anchor.addEventListener('click', function (e) {
+                e.preventDefault();
+                const target = document.querySelector(this.getAttribute('href'));
+                if (target) {
+                    target.scrollIntoView({
+                        behavior: 'smooth',
+                        block: 'start'
+                    });
+                }
+            });
+        });
+
+        // Parallax effect on hero
+        window.addEventListener('scroll', () => {
+            const scrolled = window.pageYOffset;
+            const hero = document.querySelector('.hero');
+            if (hero) {
+                hero.style.transform = `translateY(${scrolled * 0.3}px)`;
+                hero.style.opacity = 1 - (scrolled * 0.0015);
+            }
+        });
+
+        // Intersection Observer for fade-in animations
+        const observerOptions = {
+            threshold: 0.1,
+            rootMargin: '0px 0px -100px 0px'
+        };
+
+        const observer = new IntersectionObserver((entries) => {
+            entries.forEach(entry => {
+                if (entry.isIntersecting) {
+                    entry.target.style.opacity = '1';
+                    entry.target.style.transform = 'translateY(0)';
+                }
+            });
+        }, observerOptions);
+
+        document.querySelectorAll('.feature-card, .timeline-item, .arch-layer').forEach(el => {
+            el.style.opacity = '0';
+            el.style.transform = 'translateY(30px)';
+            el.style.transition = 'opacity 0.6s ease, transform 0.6s ease';
+            observer.observe(el);
+        });
+    </script>
+</body>
+</html>
