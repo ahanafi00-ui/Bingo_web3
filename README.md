@@ -1,3 +1,4 @@
+<<<<<<< HEAD
 # BINGO Protocol - Tokenized T-Bills on Stellar
 
 A Soroban-based protocol for tokenizing U.S. Treasury Bills on the Stellar network with deterministic pricing, anti-monopoly caps, and an integrated repo market.
@@ -383,9 +384,3 @@ All contracts emit events for major actions:
 
 MIT
 
-## Support
-
-For issues and questions:
-- GitHub Issues: [github.com/your-org/bingo-protocol]
-- Discord: [discord.gg/bingo]
-- Email: support@bingo-protocol.com
